@@ -632,6 +632,29 @@ radix_tuple_impl! {
     }
 }
 
+impl<K: Radix + Ord + Copy, V> RadixHeapMap<K, V> {
+    /// Pops item off the bottom
+    /// The min-bucket has to be sorted which is
+    /// *O*(*n* \* log(*n*)) worst-case.
+    pub fn pop_min(&mut self) -> Option<(K, V)> {
+        if self.top.is_none() {
+            self.constrain()
+        }
+        let min_bucket = self
+            .buckets
+            .iter_mut()
+            .rev()
+            .find(|bucket| !bucket.is_empty())?;
+
+        // Sort bucket in descending order
+        min_bucket.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+
+        let min_item = min_bucket.pop()?;
+        self.len -= 1;
+        Some(min_item)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     extern crate quickcheck;
@@ -815,5 +838,91 @@ mod tests {
         let mut vec: Vec<_> = heap.into_iter().collect();
         vec.sort();
         assert_eq!(vec, vec![(1, 2), (5, 4)]);
+    }
+
+    #[test]
+    fn test_pop_min() {
+        let mut heap = RadixHeapMap::new();
+        for i in (0..10).rev() {
+            let key = if i % 2 == 0 { i } else { -1 * i };
+            heap.push(key, key);
+        }
+
+        assert_eq!(heap.len(), 10);
+
+        let min_item = heap.pop_min();
+        assert_eq!(min_item, Some((-9, -9,)));
+        assert_eq!(heap.len(), 9);
+        assert_eq!(heap.len(), heap.iter().count());
+
+        let min_item = heap.pop_min();
+        assert_eq!(min_item, Some((-7, -7,)));
+        assert_eq!(heap.len(), 8);
+        assert_eq!(heap.len(), heap.iter().count());
+
+        let min_item = heap.pop_min();
+        assert_eq!(min_item, Some((-5, -5,)));
+        assert_eq!(heap.len(), 7);
+        assert_eq!(heap.len(), heap.iter().count());
+
+        let min_item = heap.pop_min();
+        assert_eq!(heap.len(), 6);
+        assert_eq!(heap.len(), heap.iter().count());
+        assert_eq!(min_item, Some((-3, -3,)));
+
+        let min_item = heap.pop_min();
+        assert_eq!(min_item, Some((-1, -1,)));
+        assert_eq!(heap.len(), 5);
+        assert_eq!(heap.len(), heap.iter().count());
+
+        let min_item = heap.pop_min();
+        assert_eq!(min_item, Some((0, 0,)));
+        assert_eq!(heap.len(), 4);
+        assert_eq!(heap.len(), heap.iter().count());
+
+        let min_item = heap.pop_min();
+        assert_eq!(min_item, Some((2, 2,)));
+        assert_eq!(heap.len(), 3);
+        assert_eq!(heap.len(), heap.iter().count());
+
+        let min_item = heap.pop_min();
+        assert_eq!(min_item, Some((4, 4,)));
+        assert_eq!(heap.len(), 2);
+        assert_eq!(heap.len(), heap.iter().count());
+
+        let min_item = heap.pop_min();
+        assert_eq!(min_item, Some((6, 6,)));
+        assert_eq!(heap.len(), 1);
+        assert_eq!(heap.len(), heap.iter().count());
+
+        let min_item = heap.pop_min();
+        assert_eq!(min_item, Some((8, 8,)));
+        assert_eq!(heap.len(), 0);
+        assert_eq!(heap.len(), heap.iter().count());
+    }
+
+    #[cfg(feature = "ordered-float")]
+    #[test]
+    fn test_pop_min_float() {
+        let mut heap = RadixHeapMap::new();
+        for key in (0..50).rev() {
+            heap.push(
+                ordered_float::NotNan::new(-1_f32 * (key as f32 / 10_f32)).unwrap(),
+                "(-0.1, -5.0]",
+            );
+        }
+
+        assert_eq!(heap.len(), 50);
+        let min_item = heap.pop_min();
+        assert_eq!(
+            min_item,
+            Some((
+                ordered_float::NotNan::new(-1_f32 * (49 as f32 / 10_f32)).unwrap(),
+                "(-0.1, -5.0]",
+            ))
+        );
+
+        assert_eq!(heap.len(), 49);
+        assert_eq!(heap.len(), heap.iter().count());
     }
 }
