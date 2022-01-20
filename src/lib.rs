@@ -647,7 +647,7 @@ impl<K: Radix + Ord + Copy, V> RadixHeapMap<K, V> {
             .find(|bucket| !bucket.is_empty())?;
 
         // Sort bucket in descending order
-        min_bucket.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+        //min_bucket.sort_unstable_by(|a, b| b.0.cmp(&a.0));
 
         let min_item = min_bucket.pop()?;
         self.len -= 1;
